@@ -56,9 +56,10 @@ class Tinybird(ClickHouse):
 
         return list(schema.values())
 
-    def _send_query(self, data, session_id=None, session_check=None):
+    def _send_query(self, data, stream=False, session_id=None, session_check=None):
         return self._get_from_tinybird(
             self.SQL_ENDPOINT,
+            stream=stream,
             params={"q": data.encode("utf-8", "ignore")},
         )
 
@@ -85,7 +86,12 @@ class Tinybird(ClickHouse):
 
         return schema
 
-    def _get_from_tinybird(self, endpoint, params=None):
+    def _get_from_tinybird(
+        self,
+        endpoint,
+        stream=False,
+        params=None
+    ):
         url = f"{self.configuration.get('url', self.DEFAULT_URL)}{endpoint}"
         authorization = f"Bearer {self.configuration.get('token')}"
 
@@ -109,5 +115,5 @@ class Tinybird(ClickHouse):
 
         return response.json()
 
-
-register(Tinybird)
+                details = f"({e.__class__.__name__})"
+            raise Exception(f"Connection error to: {url} {details}.")

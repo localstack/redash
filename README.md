@@ -74,6 +74,7 @@ Redash supports more than 35 SQL and NoSQL [data sources](https://redash.io/help
 - Snowflake
 - SQLite
 - TiDB
+- Tinybird
 - TreasureData
 - Vertica
 - Yandex AppMetrrica

@@ -1,7 +1,11 @@
+import logging
+
 import requests
 
 from redash.query_runner import register
 from redash.query_runner.clickhouse import ClickHouse
+
+logger = logging.getLogger(__name__)
 
 
 class Tinybird(ClickHouse):
@@ -84,7 +88,11 @@ class Tinybird(ClickHouse):
                 continue
 
             query = "SELECT * FROM %s LIMIT 1 FORMAT JSON" % r["name"]
-            query_result = self._send_query(query)
+            try:
+                query_result = self._send_query(query)
+            except Exception:
+                logger.exception("error in schema %s", r["name"])
+                continue
 
             columns = [meta["name"] for meta in query_result["meta"]]
             schema[r["name"]]["columns"].extend(columns)

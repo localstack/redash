@@ -86,10 +86,9 @@ class Tinybird(ClickHouse):
         # size already included by _get_tables call
         pass
 
-    def _send_query(self, data, stream=False):
+    def _send_query(self, data, session_id=None, session_check=None):
         return self._get_from_tinybird(
             self.SQL_ENDPOINT,
-            stream=stream,
             params={"q": data.encode("utf-8", "ignore")},
         )
 

@@ -18,8 +18,8 @@ passlib==1.7.1
 aniso8601==8.0.0
 blinker==1.4
 psycopg2==2.8.3
-python-dateutil==2.8.0
-pytz>=2019.3
+python-dateutil>=2.6.0
+pytz
 PyYAML==5.4
 redis==4.4.4
 requests==2.21.0

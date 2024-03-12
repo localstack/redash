@@ -27,7 +27,7 @@ COPY --chown=redash client /frontend/client
 COPY --chown=redash webpack.config.js /frontend/
 RUN if [ "x$skip_frontend_build" = "x" ] ; then yarn build; else mkdir -p /frontend/client/dist && touch /frontend/client/dist/multi_org.html && touch /frontend/client/dist/index.html; fi
 
-FROM python:3.7-slim-buster
+FROM python:3.7-slim-bookworm
 
 EXPOSE 5000
 
@@ -87,10 +87,6 @@ WORKDIR /app
 
 # Disable PIP Cache and Version Check
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
-ENV PIP_NO_CACHE_DIR=1
-
-# rollback pip version to avoid legacy resolver problem
-RUN pip install pip==20.2.4;
 
 # We first copy only the requirements file, to avoid rebuilding on every file change.
 COPY requirements_all_ds.txt ./

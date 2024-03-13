@@ -51,7 +51,9 @@ class Tinybird(ClickHouse):
 
     def test_connection(self):
         try:
-            self._send_query("SELECT count() FROM tinybird.pipe_stats LIMIT 1 FORMAT JSON")
+            self._send_query(
+                "SELECT count() FROM tinybird.pipe_stats LIMIT 1 FORMAT JSON"
+            )
             return True
         except Exception:
             return False
@@ -93,12 +95,13 @@ class Tinybird(ClickHouse):
         )
 
     def _get_from_tinybird(self, endpoint, stream=False, params=None):
-        url = endpoint % self.configuration.get("url", self.DEFAULT_URL)
-        authorization = "Bearer %s" % self.configuration.get("token")
+        url = f"{self.configuration.get('url', self.DEFAULT_URL)}{endpoint}"
+        authorization = f"Bearer {self.configuration.get('token')}"
 
         try:
             response = requests.get(
                 url,
+                stream=stream,
                 timeout=self.configuration.get("timeout", 30),
                 params=params,
                 headers={"Authorization": authorization},

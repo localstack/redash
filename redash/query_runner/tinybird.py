@@ -41,20 +41,50 @@ class Tinybird(ClickHouse):
             "secret": ["token"],
         }
 
+    @classmethod
+    def name(cls):
+        return "Tinybird"
+
+    @classmethod
+    def type(cls):
+        return "tinybird"
+
+    def test_connection(self):
+        try:
+            self._send_query("SELECT count() FROM tinybird.pipe_stats LIMIT 1 FORMAT JSON")
+            return True
+        except Exception:
+            return False
+
     def _get_tables(self, schema):
-        self._collect_tinybird_schema(
-            schema,
-            self.DATASOURCES_ENDPOINT,
-            "datasources",
-        )
+        # datasources
+        response = self._get_from_tinybird(self.DATASOURCES_ENDPOINT)
+        for datasource in response["datasources"]:
+            schema[datasource["name"]] = {
+                "name": datasource["name"],
+                "columns": [column["name"] for column in datasource["columns"]],
+                "size": datasource["statistics"]["row_count"],
+            }
 
-        self._collect_tinybird_schema(
-            schema,
-            self.PIPES_ENDPOINT,
-            "pipes",
-        )
+        # endpoints
+        response = self._get_from_tinybird(self.PIPES_ENDPOINT)
+        for pipe in response["pipes"]:
+            if not pipe.get("endpoint"):
+                continue
 
+            schema[pipe["name"]] = {
+                "name": pipe["name"],
+                # we cannot find out the schema of a pipe given its dynamic nature. we have used
+                # `SELECT * FROM <pipe> LIMIT 1` before, but that can cause too much data processed when
+                # querying some pipes
+                "columns": ["no_schema"],
+                "size": 0,
+            }
         return list(schema.values())
+
+    def _get_tables_stats(self, tables_dict):
+        # size already included by _get_tables call
+        pass
 
     def _send_query(self, data, stream=False, session_id=None, session_check=None):
         return self._get_from_tinybird(
@@ -63,37 +93,9 @@ class Tinybird(ClickHouse):
             params={"q": data.encode("utf-8", "ignore")},
         )
 
-    def _collect_tinybird_schema(self, schema, endpoint, resource_type):
-        response = self._get_from_tinybird(endpoint)
-        resources = response.get(resource_type, [])
-
-        for r in resources:
-            if r["name"] not in schema:
-                schema[r["name"]] = {"name": r["name"], "columns": []}
-
-            if resource_type == "pipes" and not r.get("endpoint"):
-                continue
-
-            query = f"SELECT * FROM {r['name']} LIMIT 1 FORMAT JSON"
-            try:
-                query_result = self._send_query(query)
-            except Exception:
-                logger.exception(f"error in schema {r['name']}")
-                continue
-
-            columns = [meta["name"] for meta in query_result["meta"]]
-            schema[r["name"]]["columns"].extend(columns)
-
-        return schema
-
-    def _get_from_tinybird(
-        self,
-        endpoint,
-        stream=False,
-        params=None
-    ):
-        url = f"{self.configuration.get('url', self.DEFAULT_URL)}{endpoint}"
-        authorization = f"Bearer {self.configuration.get('token')}"
+    def _get_from_tinybird(self, endpoint, stream=False, params=None):
+        url = endpoint % self.configuration.get("url", self.DEFAULT_URL)
+        authorization = "Bearer %s" % self.configuration.get("token")
 
         try:
             response = requests.get(
@@ -115,5 +117,5 @@ class Tinybird(ClickHouse):
 
         return response.json()
 
-                details = f"({e.__class__.__name__})"
-            raise Exception(f"Connection error to: {url} {details}.")
+
+register(Tinybird)

@@ -9,11 +9,13 @@ logger = logging.getLogger(__name__)
 
 
 class Tinybird(ClickHouse):
+    noop_query = "SELECT count() FROM tinybird.pipe_stats LIMIT 1"
+
     DEFAULT_URL = "https://api.tinybird.co"
 
-    SQL_ENDPOINT = "%s/v0/sql"
-    DATASOURCES_ENDPOINT = "%s/v0/datasources"
-    PIPES_ENDPOINT = "%s/v0/pipes"
+    SQL_ENDPOINT = "/v0/sql"
+    DATASOURCES_ENDPOINT = "/v0/datasources"
+    PIPES_ENDPOINT = "/v0/pipes"
 
     @classmethod
     def configuration_schema(cls):
@@ -93,8 +95,8 @@ class Tinybird(ClickHouse):
         )
 
     def _get_from_tinybird(self, endpoint, stream=False, params=None):
-        url = endpoint % self.configuration.get("url", self.DEFAULT_URL)
-        authorization = "Bearer %s" % self.configuration.get("token")
+        url = f"{self.configuration.get('url', self.DEFAULT_URL)}{endpoint}"
+        authorization = f"Bearer {self.configuration.get('token')}"
 
         try:
             response = requests.get(
@@ -107,12 +109,10 @@ class Tinybird(ClickHouse):
             )
         except requests.RequestException as e:
             if e.response:
-                details = "({}, Status Code: {})".format(
-                    e.__class__.__name__, e.response.status_code
-                )
+                details = f"({e.__class__.__name__}, Status Code: {e.response.status_code})"
             else:
-                details = "({})".format(e.__class__.__name__)
-            raise Exception("Connection error to: {} {}.".format(url, details))
+                details = f"({e.__class__.__name__})"
+            raise Exception(f"Connection error to: {url} {details}.")
 
         if response.status_code >= 400:
             raise Exception(response.text)

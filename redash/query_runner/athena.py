@@ -1,23 +1,27 @@
 import logging
 import os
 
-from redash.query_runner import *
+from redash.query_runner import (
+    TYPE_BOOLEAN,
+    TYPE_DATE,
+    TYPE_DATETIME,
+    TYPE_FLOAT,
+    TYPE_INTEGER,
+    TYPE_STRING,
+    BaseQueryRunner,
+    register,
+)
 from redash.settings import parse_boolean
-from redash.utils import json_dumps, json_loads
 
 logger = logging.getLogger(__name__)
 ANNOTATE_QUERY = parse_boolean(os.environ.get("ATHENA_ANNOTATE_QUERY", "true"))
-SHOW_EXTRA_SETTINGS = parse_boolean(
-    os.environ.get("ATHENA_SHOW_EXTRA_SETTINGS", "true")
-)
+SHOW_EXTRA_SETTINGS = parse_boolean(os.environ.get("ATHENA_SHOW_EXTRA_SETTINGS", "true"))
 ASSUME_ROLE = parse_boolean(os.environ.get("ATHENA_ASSUME_ROLE", "false"))
-OPTIONAL_CREDENTIALS = parse_boolean(
-    os.environ.get("ATHENA_OPTIONAL_CREDENTIALS", "true")
-)
+OPTIONAL_CREDENTIALS = parse_boolean(os.environ.get("ATHENA_OPTIONAL_CREDENTIALS", "true"))
 
 try:
-    import pyathena
     import boto3
+    import pyathena
 
     enabled = True
 except ImportError:
@@ -42,7 +46,7 @@ _TYPE_MAPPINGS = {
 }
 
 
-class SimpleFormatter(object):
+class SimpleFormatter:
     def format(self, operation, parameters=None):
         return operation
 
@@ -180,14 +184,11 @@ class Athena(BaseQueryRunner):
                 iterator = table_paginator.paginate(DatabaseName=database["Name"])
                 for table in iterator.search("TableList[]"):
                     table_name = "%s.%s" % (database["Name"], table["Name"])
-                    if 'StorageDescriptor' not in table:
+                    if "StorageDescriptor" not in table:
                         logger.warning("Glue table doesn't have StorageDescriptor: %s", table_name)
                         continue
                     if table_name not in schema:
-                        column = [
-                            columns["Name"]
-                            for columns in table["StorageDescriptor"]["Columns"]
-                        ]
+                        column = [columns["Name"] for columns in table["StorageDescriptor"]["Columns"]]
                         schema[table_name] = {"name": table_name, "columns": column}
                         for partition in table.get("PartitionKeys", []):
                             schema[table_name]["columns"].append(partition["Name"])
@@ -208,7 +209,6 @@ class Athena(BaseQueryRunner):
         if error is not None:
             self._handle_run_query_error(error)
 
-        results = json_loads(results)
         for row in results["rows"]:
             table_name = "{0}.{1}".format(row["table_schema"], row["table_name"])
             if table_name not in schema:
@@ -225,19 +225,14 @@ class Athena(BaseQueryRunner):
             kms_key=self.configuration.get("kms_key", None),
             work_group=self.configuration.get("work_group", "primary"),
             formatter=SimpleFormatter(),
-            **self._get_iam_credentials(user=user)
+            **self._get_iam_credentials(user=user),
         ).cursor()
 
         try:
             cursor.execute(query)
-            column_tuples = [
-                (i[0], _TYPE_MAPPINGS.get(i[1], None)) for i in cursor.description
-            ]
+            column_tuples = [(i[0], _TYPE_MAPPINGS.get(i[1], None)) for i in cursor.description]
             columns = self.fetch_columns(column_tuples)
-            rows = [
-                dict(zip(([c["name"] for c in columns]), r))
-                for i, r in enumerate(cursor.fetchall())
-            ]
+            rows = [dict(zip(([c["name"] for c in columns]), r)) for i, r in enumerate(cursor.fetchall())]
             qbytes = None
             athena_query_id = None
             try:
@@ -260,14 +255,13 @@ class Athena(BaseQueryRunner):
                 },
             }
 
-            json_data = json_dumps(data, ignore_nan=True)
             error = None
         except Exception:
             if cursor.query_id:
                 cursor.cancel()
             raise
 
-        return json_data, error
+        return data, error
 
 
 register(Athena)
